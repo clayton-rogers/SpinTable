@@ -1,5 +1,5 @@
 
-
+#include "Thread_Pool.h"
 
 #include <iostream>
 #include <vector>
@@ -31,7 +31,7 @@ struct Result_t {
 	int offset = 0;
 };
 
-Result_t get_max_number_of_matches(List_t l) {
+Result_t get_max_number_of_matches(List_t l, int limit_matches = 1000) {
 	const int n = l.size();
 	Result_t r;
 
@@ -42,6 +42,12 @@ Result_t get_max_number_of_matches(List_t l) {
 			const int required_value = (i + offset) % n;
 			if (l.at(i) == required_value) {
 				++number_of_matches;
+				// early exit if we've hit the match limit
+				if (number_of_matches == limit_matches) {
+					r.max_number_of_matches = limit_matches;
+					r.offset = offset;
+					return r;
+				}
 			}
 		}
 		if (number_of_matches > r.max_number_of_matches) {
@@ -86,7 +92,11 @@ struct State_t {
 };
 
 void do_work(State_t* state, const List_t& l) {
-	auto r = get_max_number_of_matches(l);
+	// If we've already go a solution with only 1 match then we're not going to do better.
+	if (state->result.max_number_of_matches == 1) {
+		return;
+	}
+	auto r = get_max_number_of_matches(l, state->result.max_number_of_matches);
 	// try to find the list with the minimum max number of matches
 	if (r.max_number_of_matches < state->result.max_number_of_matches) {
 		state->list = l;
@@ -96,14 +106,12 @@ void do_work(State_t* state, const List_t& l) {
 
 // Heap's algorithm
 // see https://en.wikipedia.org/wiki/Heap%27s_algorithm
-State_t generate_every_permutation_and_calc(List_t A, void(*fn)(State_t*, const List_t&)) {
+void generate_every_permutation_and_calc(List_t A, State_t* state, void(*fn)(State_t*, const List_t&)) {
 	std::vector<List_t> ret;
 	const int n = A.size();
 	std::vector<int> c(n, 0);
 
-	State_t state;
-	state.result.max_number_of_matches = n;
-	fn(&state, A);
+	fn(state, A);
 
 	int i = 0;
 	while (i < n) {
@@ -114,7 +122,7 @@ State_t generate_every_permutation_and_calc(List_t A, void(*fn)(State_t*, const 
 				std::swap(A.at(c.at(i)), A.at(i));
 			}
 
-			fn(&state, A);
+			fn(state, A);
 
 			c.at(i) += 1;
 
@@ -124,8 +132,6 @@ State_t generate_every_permutation_and_calc(List_t A, void(*fn)(State_t*, const 
 			i += 1;
 		}
 	}
-
-	return state;
 }
 
 void test() {
@@ -150,8 +156,22 @@ void test() {
 	print_result(l, r);
 }
 
+void run_table(int table_size) {
+	std::this_thread::sleep_for(std::chrono::seconds(1));
+	auto init = gen_init(table_size);
+	State_t state;
+	state.result.max_number_of_matches = init.size();
+	generate_every_permutation_and_calc(init, &state, &do_work);
+	std::cout << "Table size: " << table_size << std::endl;
+	print_result(state.list, state.result);
+}
+
+void fake_work(int work) {
+	std::this_thread::sleep_for(std::chrono::seconds(1));
+	std::cout << "working on " << work << std::endl;
+}
+
 int main() {
-	auto init = gen_init(7);
-	State_t final_state = generate_every_permutation_and_calc(init, &do_work);
-	print_result(final_state.list, final_state.result);
+	Thread_Pool tp(3, 30, &run_table);
+	tp.run();
 }
