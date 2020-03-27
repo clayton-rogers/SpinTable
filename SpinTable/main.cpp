@@ -157,6 +157,11 @@ void test() {
 }
 
 void run_table(int table_size) {
+	// don't care about odd numbered tables.
+	if (table_size % 2 == 1) {
+		return;
+	}
+
 	std::this_thread::sleep_for(std::chrono::seconds(1));
 	auto init = gen_init(table_size);
 	State_t state;
