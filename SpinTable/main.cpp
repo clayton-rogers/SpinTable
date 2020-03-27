@@ -173,5 +173,5 @@ void fake_work(int work) {
 
 int main() {
 	Thread_Pool tp(3, 30, &run_table);
-	tp.run();
+	tp.run(4);
 }

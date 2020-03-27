@@ -13,8 +13,11 @@ public:
 		start(start), end(end), function(fn) {
 	}
 
-	void run() {
-		const int num_threads = std::thread::hardware_concurrency();
+	void run(int requested_threads = DEFAULT_NUMBER_THREADS) {
+		const int num_threads =
+			(requested_threads == DEFAULT_NUMBER_THREADS) ?
+			std::thread::hardware_concurrency() :
+			requested_threads;
 
 		std::vector<std::atomic<bool>> ready_for_more_work(num_threads);
 		for (auto& atomic_bool : ready_for_more_work) {
@@ -62,6 +65,7 @@ public:
 	}
 
 private:
+	static const int DEFAULT_NUMBER_THREADS = 9999;
 	int start;
 	int end;
 	void(*function)(int);
